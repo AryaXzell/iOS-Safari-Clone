@@ -1,0 +1,38 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+  
+  --color-ios-bg: #F2F2F7;
+  --color-ios-bg-dark: #000000;
+  --color-ios-item: #FFFFFF;
+  --color-ios-item-dark: #1C1C1E;
+  --color-ios-blue: #007AFF;
+  --color-ios-text: #000000;
+  --color-ios-text-secondary: #8E8E93;
+  --color-ios-separator: #C6C6C8;
+  --color-ios-separator-dark: #38383A;
+  --color-ios-toolbar: rgba(249, 249, 249, 0.85);
+  --color-ios-toolbar-dark: rgba(29, 29, 31, 0.85);
+}
+
+@utility pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--color-ios-bg);
+  color: var(--color-ios-text);
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior-y: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+@media (prefers-color-scheme: dark) {
+  body {
+    background-color: var(--color-ios-bg-dark);
+    color: #FFFFFF;
+  }
+}

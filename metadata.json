@@ -1,0 +1,6 @@
+{
+  "name": "iOS Safari Clone",
+  "description": "A fully functional frontend clone of iOS Safari built with React, TypeScript, and Tailwind CSS.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
