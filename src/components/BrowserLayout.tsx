@@ -41,17 +41,35 @@ export function BrowserLayout() {
     recentlyClosedTabs: true
   });
 
-  // Navigation State
-  const [history, setHistory] = useState<string[]>([]);
-  const [currentIndex, setCurrentIndex] = useState(-1);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [iframeKey, setIframeKey] = useState(0);
+  type TabData = {
+    id: string;
+    history: string[];
+    currentIndex: number;
+    searchQuery: string;
+    iframeKey: number;
+  };
+
+  const [tabs, setTabs] = useState<TabData[]>([
+    { id: '1', history: [], currentIndex: -1, searchQuery: '', iframeKey: 0 }
+  ]);
+  const [activeTabId, setActiveTabId] = useState<string>('1');
+  const [isTabsViewOpen, setIsTabsViewOpen] = useState(false);
+
+  const activeTab = tabs.find(t => t.id === activeTabId) || tabs[0];
+  const history = activeTab.history;
+  const currentIndex = activeTab.currentIndex;
+  const searchQuery = activeTab.searchQuery;
+  const iframeKey = activeTab.iframeKey;
 
   // Loading State
   const [isLoading, setIsLoading] = useState(false);
   const [progress, setProgress] = useState(0);
 
   const currentUrl = currentIndex >= 0 ? history[currentIndex] : null;
+
+  const updateActiveTab = (updates: Partial<TabData>) => {
+    setTabs(prev => prev.map(t => t.id === activeTabId ? { ...t, ...updates } : t));
+  };
 
   useEffect(() => {
     let interval: ReturnType<typeof setInterval>;
@@ -78,11 +96,21 @@ export function BrowserLayout() {
   const navigateTo = (url: string) => {
     setIsLoading(true);
     setProgress(0);
-    const newHistory = history.slice(0, currentIndex + 1);
-    newHistory.push(url);
-    setHistory(newHistory);
-    setCurrentIndex(newHistory.length - 1);
-    setSearchQuery(url); // Optionally update address bar, but usually it only shows domain
+    setIsTabsViewOpen(false);
+    
+    setTabs(prev => prev.map(t => {
+      if (t.id === activeTabId) {
+        const newHistory = t.history.slice(0, t.currentIndex + 1);
+        newHistory.push(url);
+        return {
+          ...t,
+          history: newHistory,
+          currentIndex: newHistory.length - 1,
+          searchQuery: url
+        };
+      }
+      return t;
+    }));
   };
 
   const handleSearch = (e: FormEvent) => {
@@ -116,25 +144,51 @@ export function BrowserLayout() {
   const goBack = () => {
     if (currentIndex > 0) {
       setIsLoading(true);
-      setCurrentIndex(currentIndex - 1);
-      setSearchQuery(history[currentIndex - 1]);
+      updateActiveTab({ 
+        currentIndex: currentIndex - 1, 
+        searchQuery: history[currentIndex - 1] 
+      });
     } else if (currentIndex === 0) {
-      setCurrentIndex(-1); // Back to start page
-      setSearchQuery('');
+      updateActiveTab({ currentIndex: -1, searchQuery: '' });
     }
   };
 
   const goForward = () => {
     if (currentIndex < history.length - 1) {
       setIsLoading(true);
-      setCurrentIndex(currentIndex + 1);
-      setSearchQuery(history[currentIndex + 1]);
+      updateActiveTab({ 
+        currentIndex: currentIndex + 1, 
+        searchQuery: history[currentIndex + 1] 
+      });
     }
   };
 
   const reload = () => {
     setIsLoading(true);
-    setIframeKey(k => k + 1);
+    updateActiveTab({ iframeKey: iframeKey + 1 });
+  };
+
+  const addNewTab = () => {
+    const newId = Date.now().toString();
+    setTabs(prev => [...prev, { id: newId, history: [], currentIndex: -1, searchQuery: '', iframeKey: 0 }]);
+    setActiveTabId(newId);
+    setIsTabsViewOpen(false);
+  };
+
+  const closeTab = (id: string, e: any) => {
+    e.stopPropagation();
+    setTabs(prev => {
+      const remaining = prev.filter(t => t.id !== id);
+      if (remaining.length === 0) {
+        const newId = Date.now().toString();
+        setActiveTabId(newId);
+        return [{ id: newId, history: [], currentIndex: -1, searchQuery: '', iframeKey: 0 }];
+      }
+      if (id === activeTabId) {
+        setActiveTabId(remaining[remaining.length - 1].id);
+      }
+      return remaining;
+    });
   };
 
   return (
@@ -147,12 +201,12 @@ export function BrowserLayout() {
            </div>
            <input
              value={searchQuery}
-             onChange={(e) => setSearchQuery(e.target.value)}
+             onChange={(e) => updateActiveTab({ searchQuery: e.target.value })}
              placeholder="Search or enter website name"
              className="flex-1 bg-transparent border-none outline-none text-[17px] -tracking-[0.41px] text-black dark:text-white font-medium"
            />
            {searchQuery && (
-             <button type="button" onClick={() => setSearchQuery('')} className="p-1 active:opacity-50">
+             <button type="button" onClick={() => updateActiveTab({ searchQuery: '' })} className="p-1 active:opacity-50">
                <div className="w-4 h-4 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center">
                  <X size={12} strokeWidth={3} className="text-white dark:text-gray-900" />
                </div>
@@ -308,7 +362,7 @@ export function BrowserLayout() {
         {!currentUrl && (
           <div 
             className="pointer-events-auto bg-white/75 dark:bg-[#1C1C1E]/75 backdrop-blur-3xl px-4 py-1.5 rounded-full flex items-center space-x-2 shadow-[0_8px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_8px_16px_rgba(0,0,0,0.4)] border border-gray-200/50 dark:border-gray-800/50 mb-4 transition-transform active:scale-95 cursor-pointer"
-            onClick={() => setCurrentIndex(-1)}
+            onClick={() => updateActiveTab({ currentIndex: -1, searchQuery: '' })}
           >
             <div className="w-4 h-4 bg-gray-200 dark:bg-gray-700 rounded-full flex justify-center items-center">
               <LayoutGrid size={10} className="text-gray-500" />
@@ -364,12 +418,76 @@ export function BrowserLayout() {
                  <Book size={26} strokeWidth={2} />
               </button>
               
-              <button className="p-2 text-ios-blue active:opacity-40" onClick={() => navigateTo('https://www.google.com/search?q=&igu=1')}>
+              <button className="p-2 text-ios-blue active:opacity-40" onClick={() => setIsTabsViewOpen(true)}>
                  <Copy size={24} strokeWidth={2} className="rotate-90 relative top-[1px]" />
               </button>
            </div>
         </div>
       </div>
+
+      <AnimatePresence>
+        {isTabsViewOpen && (
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            transition={{ duration: 0.3, type: "spring", bounce: 0 }}
+            className="absolute inset-0 z-50 bg-[#F2F2F7] dark:bg-black overflow-hidden flex flex-col"
+          >
+            <div className="flex-1 overflow-y-auto px-4 py-12 grid grid-cols-2 gap-4 content-start">
+              {tabs.map((tab) => {
+                const url = tab.currentIndex >= 0 ? tab.history[tab.currentIndex] : null;
+                const domain = url ? (function(){ try { return new URL(url).hostname; } catch { return url; } })() : 'Start Page';
+                const iconUrl = url ? `https://www.google.com/s2/favicons?domain=${domain}&sz=128` : null;
+                return (
+                  <div key={tab.id} className="relative flex flex-col items-center group">
+                    <div className="flex items-center space-x-2 mb-2 w-full justify-center px-4">
+                       {iconUrl && <img src={iconUrl} alt="" className="w-4 h-4 rounded-sm" onError={(e) => e.currentTarget.style.display = 'none'} />}
+                       <span className="text-[13px] font-semibold text-black dark:text-white truncate">{domain}</span>
+                    </div>
+                    <button 
+                      onClick={() => {
+                        setActiveTabId(tab.id);
+                        setIsTabsViewOpen(false);
+                      }}
+                      className={cn("w-full aspect-[1/1.5] bg-white dark:bg-[#1C1C1E] rounded-2xl shadow-sm outline-none overflow-hidden relative cursor-pointer active:scale-95 transition-transform", activeTabId === tab.id ? "ring-2 ring-ios-blue ring-offset-2 ring-offset-[#F2F2F7] dark:ring-offset-black" : "")}
+                    >
+                      {url ? (
+                        <div className="w-full h-full flex flex-col pt-4 items-center border border-gray-100 dark:border-gray-800 rounded-2xl">
+                          <div className="w-3/4 h-3 bg-gray-100 dark:bg-gray-800 rounded mb-2" />
+                          <div className="w-1/2 h-2 bg-gray-100 dark:bg-gray-800 rounded mb-4" />
+                          <span className="text-gray-400 text-[10px] font-sans truncate w-full text-center px-2">{domain}</span>
+                        </div>
+                      ) : (
+                        <div className="w-full h-full flex flex-col pt-4 items-center border border-gray-100 dark:border-gray-800 rounded-2xl">
+                          <div className="grid grid-cols-4 gap-1.5 px-4 mb-4 w-full">
+                            {[1,2,3,4,5,6,7,8].map(i => <div key={i} className="aspect-square bg-gray-100 dark:bg-gray-800 rounded-sm" />)}
+                          </div>
+                        </div>
+                      )}
+                    </button>
+                    <button 
+                      onClick={(e) => closeTab(tab.id, e)}
+                      className="absolute top-8 right-2 w-6 h-6 bg-gray-200/80 dark:bg-gray-800/80 backdrop-blur-md rounded-full flex items-center justify-center text-gray-500 hover:text-black dark:hover:text-white active:scale-90"
+                    >
+                      <X size={14} strokeWidth={3} />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+            
+            <div className="h-14 md:h-[83px] pb-safe bg-ios-bg dark:bg-black border-t border-gray-200 dark:border-gray-800 flex items-center justify-between px-4 shrink-0">
+              <button onClick={addNewTab} className="p-2 text-ios-blue active:opacity-40">
+                <Plus size={28} strokeWidth={2.5} />
+              </button>
+              <button onClick={() => setIsTabsViewOpen(false)} className="px-4 py-2 text-[17px] font-semibold text-ios-blue active:opacity-40 tracking-tight">
+                Done
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <BookmarksSheet 
         isOpen={isBookmarksOpen} 
